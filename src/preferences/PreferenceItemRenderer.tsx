@@ -41,14 +41,28 @@ export default function PreferenceItemRenderer({
   }, [value]);
 
   if (item.type === "info" && typeof item.defaultValue === "function") {
-    const [info, setInfo] = useState("");
+    const [info, setInfo] = useState("Loading...");
 
     useEffect(() => {
+      let cancelled = false;
       const fetchInfo = async () => {
-        const result = await item.defaultValue();
-        setInfo(result);
+        try {
+          const result = await item.defaultValue();
+          if (!cancelled) {
+            setInfo(result);
+          }
+        } catch (error) {
+          if (!cancelled) {
+            setInfo(
+              error instanceof Error ? error.message : "Unable to load"
+            );
+          }
+        }
       };
       fetchInfo();
+      return () => {
+        cancelled = true;
+      };
     }, [item.defaultValue]);
 
     return (

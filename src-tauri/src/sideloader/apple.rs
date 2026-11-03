@@ -13,7 +13,7 @@ use std::{
     time::Duration,
 };
 use tauri::{Emitter, Listener, Manager};
-use tokio::sync::Mutex as TokioMutex;
+use tokio::sync::{oneshot, Mutex as TokioMutex};
 
 use crate::sideloader::apple_commands::{get_stored_credentials, store_credentials};
 
@@ -68,23 +68,31 @@ pub async fn login(
             .ok();
         credentials
     } else {
-        let (tx, rx) = std::sync::mpsc::channel::<String>();
+        window
+            .emit("build-output", "Waiting for Apple ID credentials".to_string())
+            .ok();
+        let (tx, rx) = oneshot::channel::<String>();
+        let tx = Arc::new(Mutex::new(Some(tx)));
         window
             .emit("apple-id-required", ())
             .map_err(|e| e.to_string())?;
         let tx_login = tx.clone();
         let received = window.listen("apple-id-recieved", move |event| {
-            let _ = tx_login.send(format!("apple-id-recieved:{}", event.payload()));
+            if let Some(tx) = tx_login.lock().unwrap().take() {
+                let _ = tx.send(format!("apple-id-recieved:{}", event.payload()));
+            }
         });
         let tx_cancel = tx;
         let cancelled = window.listen("login-cancelled", move |_| {
-            let _ = tx_cancel.send("login-cancelled".to_string());
+            if let Some(tx) = tx_cancel.lock().unwrap().take() {
+                let _ = tx.send("login-cancelled".to_string());
+            }
         });
-        let result = rx.recv_timeout(Duration::from_secs(120));
+        let result = tokio::time::timeout(Duration::from_secs(120), rx).await;
         window.unlisten(received);
         window.unlisten(cancelled);
         match result {
-            Ok(message) if message.starts_with("apple-id-recieved:") => {
+            Ok(Ok(message)) if message.starts_with("apple-id-recieved:") => {
                 let json: Value = serde_json::from_str(
                     &message["apple-id-recieved:".len()..],
                 )
@@ -108,8 +116,9 @@ pub async fn login(
                 }
                 (email, password)
             }
-            Ok(_) => return Err("Login cancelled by user".to_string()),
-            Err(_) => return Err("Login cancelled or timed out".to_string()),
+            Ok(Ok(_)) => return Err("Login cancelled by user".to_string()),
+            Ok(Err(_)) => return Err("Apple ID login was cancelled".to_string()),
+            Err(_) => return Err("Apple ID login timed out".to_string()),
         }
     };
 
@@ -125,15 +134,19 @@ pub async fn login(
             window
                 .emit("2fa-required", params)
                 .map_err(|e| rootcause::report!("{e}"))?;
-            let (tx, rx) = std::sync::mpsc::channel::<String>();
+            let (tx, rx) = oneshot::channel::<String>();
+            let tx = Arc::new(Mutex::new(Some(tx)));
             let handler = window.listen("2fa-recieved", move |event| {
-                let _ = tx.send(event.payload().trim_matches('"').to_string());
+                if let Some(tx) = tx.lock().unwrap().take() {
+                    let _ = tx.send(event.payload().trim_matches('"').to_string());
+                }
             });
-            let result = rx.recv_timeout(Duration::from_secs(120));
+            let result = tokio::time::timeout(Duration::from_secs(120), rx).await;
             window.unlisten(handler);
             Ok(match result {
-                Ok(code) => TwoFactorCallbackResponse::SubmitCode(code),
+                Ok(Ok(code)) => TwoFactorCallbackResponse::SubmitCode(code),
                 Err(_) => TwoFactorCallbackResponse::Abort,
+                Ok(Err(_)) => TwoFactorCallbackResponse::Abort,
             })
         }
         .boxed()
