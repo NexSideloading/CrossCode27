@@ -202,7 +202,7 @@ function BottomBarFilter({
   const { path } = useParams<"path">();
   const [anisetteServer] = useStore<string>(
     "apple-id/anisette-server",
-    "ani.sidestore.io"
+    "ani.jkcoxson.com"
   );
 
   return (

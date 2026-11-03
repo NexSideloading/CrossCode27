@@ -9,15 +9,26 @@ export const appleIdPage = createPreferencePage(
       "anisette-server",
       "Anisette Server",
       [
-        { label: "Sidestore (.io)", value: "ani.sidestore.io" },
-        { label: "Sidestore (.app)", value: "ani.sidestore.app" },
-        { label: "Sidestore (.zip)", value: "ani.sidestore.zip" },
-        { label: "Sidestore (.xyz)", value: "ani.846969.xyz" },
-        { label: "nythepegasus", value: "ani.npeg.us" },
-        { label: "Custom", value: "other", default: "ani.yourserver.com" }
+        {
+          label: "jkcoxson (Windows ADI)",
+          value: "ani.jkcoxson.com",
+        },
+        { label: "SideStore (New)", value: "new.ani.sidestore.io" },
+        { label: "jkcoxson", value: "mac-ani.jkcoxson.com" },
+        {
+          label: "SideStore (Windows ADI)",
+          value: "win.ani.sidestore.io",
+        },
+        { label: "Lill q", value: "anisette.lillq.me" },
+        { label: "iLoader", value: "ani.iloader.app" },
+        {
+          label: "Custom",
+          value: "other",
+          default: "ani.yourserver.com",
+        },
       ],
       "The remote anisette server used. Change this if you are having issues logging in.",
-      "ani.sidestore.io"
+      "ani.jkcoxson.com"
     ),
     {
       id: "apple-id-email",

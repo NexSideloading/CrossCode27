@@ -1,23 +1,44 @@
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
+
+use isideload::{
+    sideload::{
+        builder::{ExtensionsBehavior, ExtensionsBehaviorSelection, MaxCertsBehavior},
+        sideloader::Sideloader,
+        SideloaderBuilder,
+    },
+    util::callbacks::{ExtensionsBehaviorCallbackBox, MaxCertsCallbackBox},
+};
+use tauri::{Emitter, Manager};
 
 use crate::sideloader::device::{get_provider, list_devices, DeviceInfo};
-use isideload::{sideload, Error, SideloadConfiguration, SideloadLogger};
-use tauri::{Emitter, Manager, Window};
 
-pub struct TauriLogger {
-    window: Arc<Window>,
-}
+type CrossCodeSideloader = Sideloader<MaxCertsCallbackBox, ExtensionsBehaviorCallbackBox>;
 
-impl SideloadLogger for TauriLogger {
-    fn log(&self, message: &str) {
-        self.window.emit("build-output", message.to_string()).ok();
-    }
+async fn create_sideloader(
+    handle: &tauri::AppHandle,
+    window: &tauri::Window,
+    anisette_server: String,
+) -> Result<CrossCodeSideloader, String> {
+    let account =
+        crate::sideloader::apple::get_account(handle, window, anisette_server.clone()).await?;
+    let email = account.lock().unwrap().email.clone();
+    let dev_session =
+        crate::sideloader::apple::get_developer_session(handle, window, anisette_server).await?;
+    let storage = Box::new(isideload::util::fs_storage::FsStorage::new(
+        handle
+            .path()
+            .app_data_dir()
+            .map_err(|e| format!("Failed to get app data directory: {e}"))?,
+    ));
 
-    fn error(&self, error: &Error) {
-        self.window
-            .emit("build-output", format!("Error: {}", error))
-            .ok();
-    }
+    Ok(SideloaderBuilder::new(dev_session, email)
+        .machine_name("CrossCode".to_string())
+        .storage(storage)
+        .extensions_behavior(ExtensionsBehaviorSelection::Fixed(
+            ExtensionsBehavior::ReuseMain,
+        ))
+        .max_certs_behavior(MaxCertsBehavior::Revoke)
+        .build())
 }
 
 pub async fn sideload_app(
@@ -27,24 +48,18 @@ pub async fn sideload_app(
     device: DeviceInfo,
     app_path: PathBuf,
 ) -> Result<(), String> {
-    let dev_session =
-        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server.clone())
-            .await?;
-    let logger = TauriLogger {
-        window: Arc::new(window.clone()),
-    };
-    let store_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
-
-    let config = SideloadConfiguration::new()
-        .set_store_dir(store_dir.clone())
-        .set_logger(&logger)
-        .set_machine_name("CrossCode".to_string());
-
     let provider = get_provider(&device).await?;
-    sideload::sideload_app(&provider, &dev_session, app_path, config)
+    let mut sideloader = create_sideloader(handle, window, anisette_server).await?;
+    sideloader
+        .install_app(
+            &provider,
+            app_path,
+            true,
+            None::<fn(f32) -> std::future::Ready<()>>,
+            None,
+        )
         .await
-        .map_err(|e| e.to_string())?;
-
+        .map_err(|e| format!("{e:?}"))?;
     Ok(())
 }
 
@@ -52,15 +67,11 @@ pub async fn sideload_app(
 pub async fn refresh_idevice(window: tauri::Window) {
     match list_devices().await {
         Ok(devices) => {
-            window
-                .emit("idevices", devices)
-                .expect("Failed to send devices");
+            window.emit("idevices", devices).ok();
         }
         Err(e) => {
-            window
-                .emit("idevices", Vec::<DeviceInfo>::new())
-                .expect("Failed to send error");
-            eprintln!("Failed to list devices: {}", e);
+            window.emit("idevices", Vec::<DeviceInfo>::new()).ok();
+            eprintln!("Failed to list devices: {e}");
         }
-    };
+    }
 }

@@ -1,4 +1,9 @@
-use isideload::developer_session::{DeveloperDeviceType, ListAppIdsResponse};
+use isideload::dev::{
+    app_ids::{AppIdsApi, ListAppIdsResponse},
+    certificates::{CertificatesApi, DevelopmentCertificate},
+    developer_session::{DeveloperDeviceType, DeveloperSession},
+    teams::TeamsApi,
+};
 use keyring::{Entry, Error as KeyringError};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
@@ -6,65 +11,60 @@ use tauri::Manager;
 use crate::sideloader::apple::APPLE_ACCOUNT;
 
 pub fn store_credentials(email: &str, password: &str) -> Result<(), KeyringError> {
-    let email_entry = Entry::new("crosscode", "apple_id_email")?;
-    email_entry.set_password(email)?;
-    let pass_entry = Entry::new("crosscode", email)?;
-    pass_entry.set_password(password)
+    Entry::new("crosscode", "apple_id_email")?.set_password(email)?;
+    Entry::new("crosscode", email)?.set_password(password)
 }
 
 pub fn get_stored_credentials() -> Option<(String, String)> {
-    let email_entry = Entry::new("crosscode", "apple_id_email").ok()?;
-    let email = email_entry.get_password().ok()?;
-    let pass_entry = Entry::new("crosscode", &email).ok()?;
-    let password = pass_entry.get_password().ok()?;
+    let email = Entry::new("crosscode", "apple_id_email")
+        .ok()?
+        .get_password()
+        .ok()?;
+    let password = Entry::new("crosscode", &email).ok()?.get_password().ok()?;
     Some((email, password))
 }
 
 #[tauri::command]
 pub fn get_apple_email() -> String {
-    let credentials = get_stored_credentials();
-    if credentials.is_none() {
-        return "".to_string();
-    }
-    let (email, _) = credentials.unwrap();
-    email
+    get_stored_credentials()
+        .map(|(email, _)| email)
+        .unwrap_or_default()
 }
 
 #[tauri::command]
 pub fn delete_stored_credentials() -> Result<(), String> {
     let email_entry =
-        Entry::new("crosscode", "apple_id_email").map_err(|e| format!("Keyring error: {:?}", e))?;
+        Entry::new("crosscode", "apple_id_email").map_err(|e| format!("Keyring error: {e:?}"))?;
     let email = match email_entry.get_password() {
         Ok(email) => email,
-        Err(_) => {
-            return Ok(());
-        }
+        Err(keyring::Error::NoEntry) => return Ok(()),
+        Err(e) => return Err(format!("Keyring error: {e:?}")),
     };
-    let pass_entry =
-        Entry::new("crosscode", &email).map_err(|e| format!("Keyring error: {:?}", e))?;
-
-    pass_entry
-        .delete_password()
-        .map_err(|e| format!("Keyring error: {:?}", e))?;
+    Entry::new("crosscode", &email)
+        .map_err(|e| format!("Keyring error: {e:?}"))?
+        .delete_credential()
+        .map_err(|e| format!("Keyring error: {e:?}"))?;
     email_entry
-        .delete_password()
-        .map_err(|e| format!("Keyring error: {:?}", e))?;
-
+        .delete_credential()
+        .map_err(|e| format!("Keyring error: {e:?}"))?;
     if let Some(account) = APPLE_ACCOUNT.get() {
-        let mut account_guard = account.lock().unwrap();
-        *account_guard = None;
+        *account.lock().unwrap() = None;
     }
     Ok(())
 }
 
 #[tauri::command]
 pub async fn reset_anisette(handle: tauri::AppHandle) -> Result<(), String> {
+    let data_dir = handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let config_dir = handle.path().app_config_dir().map_err(|e| e.to_string())?;
-    let status_path = config_dir.join("state.plist");
-    if status_path.exists() {
-        std::fs::remove_file(&status_path).map_err(|e| e.to_string())?;
+    for state_path in [data_dir.join("anisette_state"), config_dir.join("state.plist")] {
+        if state_path.exists() {
+            tokio::fs::remove_file(state_path)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
     }
-
+    crate::sideloader::apple::invalidate_account();
     Ok(())
 }
 
@@ -76,32 +76,41 @@ pub struct CertificateInfo {
     pub machine_name: String,
 }
 
+fn certificate_info(cert: DevelopmentCertificate) -> CertificateInfo {
+    CertificateInfo {
+        name: cert.name.unwrap_or_default(),
+        certificate_id: cert.certificate_id.unwrap_or_default(),
+        serial_number: cert.serial_number.unwrap_or_default(),
+        machine_name: cert.machine_name.unwrap_or_default(),
+    }
+}
+
+async fn team(
+    session: &mut DeveloperSession,
+) -> Result<isideload::dev::teams::DeveloperTeam, String> {
+    session
+        .list_teams()
+        .await
+        .map_err(|e| format!("{e:?}"))?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "No developer teams available".to_string())
+}
+
 #[tauri::command]
 pub async fn get_certificates(
     handle: tauri::AppHandle,
     window: tauri::Window,
     anisette_server: String,
 ) -> Result<Vec<CertificateInfo>, String> {
-    let dev_session =
-        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server.clone())
-            .await?;
-    let team = dev_session
-        .get_team()
+    let mut session =
+        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server).await?;
+    let selected_team = team(&mut session).await?;
+    session
+        .list_all_development_certs(&selected_team, DeveloperDeviceType::Ios)
         .await
-        .map_err(|e| format!("Failed to get developer team: {:?}", e))?;
-    let certificates = dev_session
-        .list_all_development_certs(DeveloperDeviceType::Ios, &team)
-        .await
-        .map_err(|e| format!("Failed to get development certificates: {:?}", e))?;
-    Ok(certificates
-        .into_iter()
-        .map(|cert| CertificateInfo {
-            name: cert.name,
-            certificate_id: cert.certificate_id,
-            serial_number: cert.serial_number,
-            machine_name: cert.machine_name,
-        })
-        .collect())
+        .map(|certs| certs.into_iter().map(certificate_info).collect())
+        .map_err(|e| format!("{e:?}"))
 }
 
 #[tauri::command]
@@ -111,18 +120,13 @@ pub async fn revoke_certificate(
     anisette_server: String,
     serial_number: String,
 ) -> Result<(), String> {
-    let dev_session =
-        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server.clone())
-            .await?;
-    let team = dev_session
-        .get_team()
+    let mut session =
+        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server).await?;
+    let selected_team = team(&mut session).await?;
+    session
+        .revoke_development_cert(&selected_team, &serial_number, DeveloperDeviceType::Ios)
         .await
-        .map_err(|e| format!("Failed to get developer team: {:?}", e))?;
-    dev_session
-        .revoke_development_cert(DeveloperDeviceType::Ios, &team, &serial_number)
-        .await
-        .map_err(|e| format!("Failed to revoke development certificates: {:?}", e))?;
-    Ok(())
+        .map_err(|e| format!("{e:?}"))
 }
 
 #[tauri::command]
@@ -131,18 +135,13 @@ pub async fn list_app_ids(
     window: tauri::Window,
     anisette_server: String,
 ) -> Result<ListAppIdsResponse, String> {
-    let dev_session =
-        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server.clone())
-            .await?;
-    let team = dev_session
-        .get_team()
+    let mut session =
+        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server).await?;
+    let selected_team = team(&mut session).await?;
+    session
+        .list_app_ids(&selected_team, None)
         .await
-        .map_err(|e| format!("Failed to get developer team: {:?}", e))?;
-    let app_ids = dev_session
-        .list_app_ids(DeveloperDeviceType::Ios, &team)
-        .await
-        .map_err(|e| format!("Failed to list App IDs: {:?}", e))?;
-    Ok(app_ids)
+        .map_err(|e| format!("{e:?}"))
 }
 
 #[tauri::command]
@@ -152,16 +151,11 @@ pub async fn delete_app_id(
     anisette_server: String,
     app_id_id: String,
 ) -> Result<(), String> {
-    let dev_session =
-        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server.clone())
-            .await?;
-    let team = dev_session
-        .get_team()
+    let mut session =
+        crate::sideloader::apple::get_developer_session(&handle, &window, anisette_server).await?;
+    let selected_team = team(&mut session).await?;
+    session
+        .delete_app_id(&selected_team, &app_id_id, None)
         .await
-        .map_err(|e| format!("Failed to get developer team: {:?}", e))?;
-    dev_session
-        .delete_app_id(DeveloperDeviceType::Ios, &team, app_id_id)
-        .await
-        .map_err(|e| format!("Failed to delete App ID: {:?}", e))?;
-    Ok(())
+        .map_err(|e| format!("{e:?}"))
 }

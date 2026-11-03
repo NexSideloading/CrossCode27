@@ -36,6 +36,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       const storeInstance = await load("preferences.json");
       setStore(storeInstance);
 
+      const anisetteServer = await storeInstance.get<string>(
+        "apple-id/anisette-server"
+      );
+      if (
+        anisetteServer === "ani.sidestore.io" ||
+        anisetteServer === "ani.iloader.app"
+      ) {
+        await storeInstance.set(
+          "apple-id/anisette-server",
+          "ani.jkcoxson.com"
+        );
+        await storeInstance.save();
+      }
+
       let theme = await storeInstance.get("appearance/theme");
       if (theme === undefined) theme = "dark";
       await setTheme(theme as "light" | "dark");
