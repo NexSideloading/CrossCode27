@@ -25,7 +25,7 @@ import { restartServer } from "../utilities/lsp-client";
 import BottomBar from "../components/Tiles/BottomBar";
 import { open as openFileDialog, save } from "@tauri-apps/plugin-dialog";
 import { IStandaloneCodeEditor } from "@codingame/monaco-vscode-api/vscode/vs/editor/standalone/browser/standaloneCodeEditor";
-import { DARWIN_SDK_VERSION } from "../utilities/constants";
+import { DARWIN_SDK_VERSIONS } from "../utilities/constants";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
 export interface IDEProps {}
@@ -390,7 +390,7 @@ export default () => {
       {initialized &&
         selectedToolchain !== null &&
         hasIgnoredDarwinSDK === false &&
-        darwinSDKVersion !== DARWIN_SDK_VERSION && (
+        !DARWIN_SDK_VERSIONS.includes(darwinSDKVersion) && (
           <Modal
             open={true}
             onClose={() => {
@@ -407,10 +407,9 @@ export default () => {
                   <Typography level="h3">Incompatible SDK Version</Typography>
                 </div>
                 <Typography level="body-lg">
-                  This version of CrossCode is designed to work with Darwin SDK{" "}
-                  {DARWIN_SDK_VERSION}, but you have version {darwinSDKVersion}{" "}
-                  installed. Things may still work, but you will miss out on
-                  newer features (like liquid glass) and may run into issues.
+                  This version of CrossCode supports Darwin SDK 26.0 and 27.0,
+                  but you have SDK {darwinSDKVersion} installed. Reinstall the
+                  SDK using Xcode 26 or Xcode 27.
                 </Typography>
               </div>
 

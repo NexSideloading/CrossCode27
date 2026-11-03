@@ -11,7 +11,10 @@ import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import ErrorIcon from "@mui/icons-material/Error";
 import { invoke } from "@tauri-apps/api/core";
-import { SWIFT_VERSION_PREFIX } from "../utilities/constants";
+import {
+  SWIFT_VERSION_PREFIX,
+  SWIFT_VERSION_PREFIXES,
+} from "../utilities/constants";
 
 export default () => {
   const {
@@ -93,7 +96,7 @@ export default () => {
               fontFamily: "monospace",
             }}
           >
-            swiftly install {SWIFT_VERSION_PREFIX}
+            swiftly install 6.4.2
           </span>
           " or manually. If you have already done so, but it is not showing up,
           your toolchain installation may be broken. For help, refer to the{" "}
@@ -205,7 +208,9 @@ export default () => {
 
 export function isCompatable(toolchain: Toolchain | null): boolean {
   if (!toolchain) return false;
-  return toolchain.version.startsWith(SWIFT_VERSION_PREFIX);
+  return SWIFT_VERSION_PREFIXES.some((prefix) =>
+    toolchain.version.startsWith(prefix)
+  );
 }
 
 function stringifyToolchain(toolchain: Toolchain | null): string | null {

@@ -24,7 +24,7 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-const DARWIN_TOOLS_VERSION: &str = "1.0.1";
+const DARWIN_TOOLS_VERSION: &str = "1.1.0";
 
 #[tauri::command]
 pub async fn install_sdk_operation(

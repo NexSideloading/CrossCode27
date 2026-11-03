@@ -7,7 +7,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { installSdkOperation } from "../utilities/operations";
 import ErrorIcon from "@mui/icons-material/Error";
 import WarningIcon from "@mui/icons-material/Warning";
-import { DARWIN_SDK_VERSION } from "../utilities/constants";
+import { DARWIN_SDK_VERSIONS } from "../utilities/constants";
 
 export default () => {
   const {
@@ -119,12 +119,14 @@ export default () => {
           <Typography
             level="body-sm"
             color={
-              darwinSDKVersion === DARWIN_SDK_VERSION ? undefined : "warning"
+              DARWIN_SDK_VERSIONS.includes(darwinSDKVersion)
+                ? undefined
+                : "warning"
             }
           >
-            {darwinSDKVersion === DARWIN_SDK_VERSION
+            {DARWIN_SDK_VERSIONS.includes(darwinSDKVersion)
               ? `Version: ${darwinSDKVersion}`
-              : `Unsupported SDK version (${darwinSDKVersion}). Apps may compile, but you may not be able to use newer features (like liquid glass). Please re-install with Xcode 26.`}
+              : `Unsupported SDK version (${darwinSDKVersion}). Please install an SDK from Xcode 26 or 27.`}
           </Typography>
         )}
       </div>
@@ -143,7 +145,18 @@ export default () => {
             );
           }}
         >
-          Download XCode 26
+          Download Xcode 26
+        </Button>
+        <Button
+          variant="soft"
+          onClick={(e) => {
+            e.preventDefault();
+            openUrl(
+              "https://developer.apple.com/services-account/download?path=/Developer_Tools/Xcode_27/Xcode_27_Universal.xip"
+            );
+          }}
+        >
+          Download Xcode 27
         </Button>
         <Button
           variant="soft"
