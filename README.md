@@ -10,7 +10,7 @@
 
 ---
 
-[![Build CrossCode](https://github.com/NovaDev404/CrossCode27/actions/workflows/build.yml/badge.svg)](https://github.com/nab138/CrossCode/actions/workflows/build.yml)
+[![Build CrossCode](https://github.com/NexSideloading/CrossCode27/actions/workflows/build.yml/badge.svg)](https://github.com/nab138/CrossCode/actions/workflows/build.yml)
 
 iOS Swift development IDE for Windows/Linux. Create, build, and test apps without owning a Mac.
 
@@ -24,7 +24,7 @@ https://github.com/user-attachments/assets/9cbe2b71-d765-46c6-aa25-ef16b539deec
 
 CrossCode is currently in alpha. Expect bugs!
 
-Download the latest build for your platform from [releases](https://github.com/NovaDev404/CrossCode27/releases/latest).
+Download the latest build for your platform from [releases](https://github.com/NexSideloading/CrossCode27/releases/latest).
 
 Check out the [Getting Started](https://github.com/nab138/CrossCode/wiki#getting-started) section of the [wiki](https://github.com/nab138/CrossCode/wiki). Also, see [Troubleshooting](https://github.com/nab138/CrossCode/wiki/Troubleshooting) and [FAQ](https://github.com/nab138/CrossCode/wiki/FAQ)
 
