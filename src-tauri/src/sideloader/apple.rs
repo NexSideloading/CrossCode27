@@ -13,10 +13,12 @@ use std::{
     time::Duration,
 };
 use tauri::{Emitter, Listener, Manager};
+use tokio::sync::Mutex as TokioMutex;
 
 use crate::sideloader::apple_commands::{get_stored_credentials, store_credentials};
 
-pub static APPLE_ACCOUNT: OnceCell<Mutex<Option<Arc<Mutex<AppleAccount>>>>> = OnceCell::new();
+pub static APPLE_ACCOUNT: OnceCell<Mutex<Option<Arc<TokioMutex<AppleAccount>>>>> =
+    OnceCell::new();
 
 fn storage(handle: &tauri::AppHandle) -> Result<Box<dyn SideloadingStorage>, String> {
     Ok(Box::new(FsStorage::new(
@@ -31,14 +33,14 @@ pub async fn get_account(
     handle: &tauri::AppHandle,
     window: &tauri::Window,
     anisette_server: String,
-) -> Result<Arc<Mutex<AppleAccount>>, String> {
+) -> Result<Arc<TokioMutex<AppleAccount>>, String> {
     let cell = APPLE_ACCOUNT.get_or_init(|| Mutex::new(None));
     if let Some(account) = cell.lock().unwrap().as_ref() {
         return Ok(account.clone());
     }
 
     let account = login(handle, window, anisette_server).await?;
-    let account = Arc::new(Mutex::new(account));
+    let account = Arc::new(TokioMutex::new(account));
     *cell.lock().unwrap() = Some(account.clone());
     Ok(account)
 }
@@ -49,7 +51,7 @@ pub async fn get_developer_session(
     anisette_server: String,
 ) -> Result<DeveloperSession, String> {
     let account = get_account(handle, window, anisette_server).await?;
-    let mut account = account.lock().unwrap();
+    let mut account = account.lock().await;
     DeveloperSession::from_account(&mut *account)
         .await
         .map_err(|e| format!("{e:?}"))

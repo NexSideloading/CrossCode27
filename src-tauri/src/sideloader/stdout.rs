@@ -5,6 +5,7 @@ use crate::{
         device::{get_provider, DeviceInfo},
     },
 };
+use isideload::dev::teams::TeamsApi;
 use idevice::{
     core_device::{AppServiceClient, OpenStdioSocketClient},
     core_device_proxy::CoreDeviceProxy,
@@ -39,7 +40,7 @@ pub async fn start_stream_stdout(
     let proxy = CoreDeviceProxy::connect(&provider)
         .await
         .map_err(|e| format!("Failed to connect to device proxy: {}", e))?;
-    let rsd_port = proxy.handshake.server_rsd_port;
+    let rsd_port = proxy.tunnel_info().server_rsd_port;
 
     let adapter = proxy
         .create_software_tunnel()
@@ -144,12 +145,15 @@ async fn get_bundle_id(
     let config = TomlConfig::load_or_default(PathBuf::from(folder))?;
     let bundle_id = config.project.bundle_id;
 
-    let session = get_developer_session(handle, window, anisette_server).await?;
+    let mut session = get_developer_session(handle, window, anisette_server).await?;
 
     let team_id = session
-        .get_team()
+        .list_teams()
         .await
         .map_err(|e| format!("Failed to get team: {:?}", e))?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "No developer teams available".to_string())?
         .team_id;
 
     Ok(format!("{}.{}", bundle_id, team_id))

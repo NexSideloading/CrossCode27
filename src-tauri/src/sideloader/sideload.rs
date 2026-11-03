@@ -21,7 +21,7 @@ async fn create_sideloader(
 ) -> Result<CrossCodeSideloader, String> {
     let account =
         crate::sideloader::apple::get_account(handle, window, anisette_server.clone()).await?;
-    let email = account.lock().unwrap().email.clone();
+    let email = account.lock().await.email.clone();
     let dev_session =
         crate::sideloader::apple::get_developer_session(handle, window, anisette_server).await?;
     let storage = Box::new(isideload::util::fs_storage::FsStorage::new(

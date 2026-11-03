@@ -14,7 +14,7 @@ pub async fn take_screenshot(device: DeviceInfo) -> Result<Vec<u8>, String> {
     let proxy = CoreDeviceProxy::connect(&provider)
         .await
         .map_err(|e| format!("Failed to connect to device proxy: {}", e))?;
-    let rsd_port = proxy.handshake.server_rsd_port;
+    let rsd_port = proxy.tunnel_info().server_rsd_port;
 
     let adapter = proxy
         .create_software_tunnel()
