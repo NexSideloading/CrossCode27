@@ -3,14 +3,14 @@
 <div id="user-content-toc">
   <ul style="list-style: none;">
     <summary>
-      <h1>CrossCode</h1>
+      <h1>CrossCode 27</h1>
     </summary>
   </ul>
 </div>
 
 ---
 
-[![Build CrossCode](https://github.com/nab138/CrossCode/actions/workflows/build.yml/badge.svg)](https://github.com/nab138/CrossCode/actions/workflows/build.yml)
+[![Build CrossCode](https://github.com/NovaDev404/CrossCode27/actions/workflows/build.yml/badge.svg)](https://github.com/nab138/CrossCode/actions/workflows/build.yml)
 
 iOS Swift development IDE for Windows/Linux. Create, build, and test apps without owning a Mac.
 
@@ -24,7 +24,7 @@ https://github.com/user-attachments/assets/9cbe2b71-d765-46c6-aa25-ef16b539deec
 
 CrossCode is currently in alpha. Expect bugs!
 
-Download the latest build for your platform from [releases](https://github.com/nab138/CrossCode/releases/latest).
+Download the latest build for your platform from [releases](https://github.com/NovaDev404/CrossCode27/releases/latest).
 
 Check out the [Getting Started](https://github.com/nab138/CrossCode/wiki#getting-started) section of the [wiki](https://github.com/nab138/CrossCode/wiki). Also, see [Troubleshooting](https://github.com/nab138/CrossCode/wiki/Troubleshooting) and [FAQ](https://github.com/nab138/CrossCode/wiki/FAQ)
 
@@ -55,6 +55,8 @@ Please note that I am one person, so development may be slow. If you want to hel
 
 ## Credits
 
+- [NovaDev404](https://github.com/NovaDev404/) for adding Xcode 27 support
+- [nab138](https://github.com/nab138/) for creating CrossCode
 - [idevice](https://github.com/jkcoxson/idevice) is used to communicate with iOS devices.
 - [xtool](https://xtool.sh) has been used as a reference for the implementation of the darwin SDK generation.
 - [Sideloader](https://github.com/Dadoum/Sideloader) has been heavily used as a reference for the implementation of the Apple Developer APIs and sideloading process.
@@ -62,4 +64,5 @@ Please note that I am one person, so development may be slow. If you want to hel
 
 ### AI Usage
 
-- Helped port small sections of code from [Sideloader](https://github.com/Dadoum/Sideloader) because I'm not familiar with dlang syntax
+- NovaDev404 used AI to help add Xcode 27 support
+- Nab138 used AI to help port small sections of code from [Sideloader](https://github.com/Dadoum/Sideloader) because not familiar with dlang syntax
